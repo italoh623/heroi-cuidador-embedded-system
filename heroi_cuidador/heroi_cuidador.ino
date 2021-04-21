@@ -1,3 +1,4 @@
+ ITALO
 #include <MPU6050_tockn.h>
 #include"BluetoothSerial.h"
 #include <string>
@@ -305,54 +306,62 @@ bool modo_operacao() {
 }
 
 bool iniciar_calibracao() {
-  enviar_bluetooth("{MSGEntrou no modo de Calibracao}");
+  Serial.println("{MSGEntrou no modo de Calibracao}");
   String comando = "";
-
+  valor_calibracao = 0.0;
   while (calibracao) {
-
     //checar envio para o celular
     comando = receber_bluetooth();
-
     if (comando == "operacao") {
       calibracao = false;
       operacao = true;
-    }
-    else if (comando == "iniciar_exercicio") {
-
-      String comando_exercicio = "";
-      valor_calibracao = 0.0;
-
-      while (comando_exercicio != "finalizar_exercicio") {
-        //ler mpu
-        leitura();
-
-        float variacao = 90 - angulo_x;
-
-        if (variacao > valor_calibracao) {
-          if (variacao >= 0 && variacao <= 90) {
-            valor_calibracao = variacao;
-          }
-        }
-
-        comando_exercicio = receber_bluetooth();
-        delay(20);
-      }
-
-      if (comando_exercicio == "finalizar_exercicio") {
-        enviar_bluetooth("{" + (String) "CAL" + (String) valor_calibracao + (String) "}");
-        //enviar valor máximo pro app
-      }
-    }
-    else if (comando == "fim_calibracao") {
+    }else if (comando == "fim_calibracao") {
       calibracao = false;
       operacao = true;
+      //enviar média
     }
+    else {
+        aux_calibracao=true;
+        leitura();
+        //colocar dentro do while um auxiliar calibração
+        
+        while(aux_calibracao==true) {
+          //ler mpu
+          leitura();
+          float variacao = 90 - angulo_x;
+          if(variacao>20){
+              se_inclinou=true;
+            }
+        Serial.println(variacao);
+          if(variacao > valor_calibracao) {
+            if(variacao >= 0 && variacao <= 90) {
+              valor_calibracao = variacao;
+            }
+            
+          }
+          else{
+            if(variacao<10&&se_inclinou){
+              aux_calibracao=false;
+              comando = "finalizar_exercicio";
+              }
+            }
+          delay(20);
+        }
 
+        if (comando == "finalizar_exercicio") {
+          Serial.println("{" + (String) "CAL" + (String) valor_calibracao + (String) "}");
+          //enviar valor máximo pro app
+          delay(3000);
+          valor_calibracao = 0.0;
+          se_inclinou=false;
+        }
+    } 
     delay(20);
   }
 
   return true;
 }
+
 
 
 String receber_bluetooth() {
