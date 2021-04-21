@@ -1,4 +1,3 @@
- ITALO
 #include <MPU6050_tockn.h>
 #include"BluetoothSerial.h"
 #include <string>
@@ -19,9 +18,6 @@ bool aux2;
 
 bool calibracao = false;
 bool operacao = false;
-//bool segundo_exercicio = false;
-//bool terceiro_exercicio = false;
-//bool finalizou_exercicio = false;
 
 int valor_emg_atual;
 int valores_emg[5] = {0, 0, 0, 0, 0};
@@ -35,6 +31,8 @@ float angulo_z;
 int contador_postura_correta;
 int contador_postura_incorreta;
 int valor_calibracao;
+
+boolean se_inclinou;
 
 //Constantes
 //const int  TETO_VOLTAGEM_REPOUSO = 600;
@@ -66,6 +64,7 @@ void setup() {
   Wire.begin();
   mpu6050.begin();
   mpu6050.setGyroOffsets(-1.20, -4.25, 1.53);
+  
   valor_calibracao = 0;
   musculo_relaxado = true;
   postura_ereta = true;
@@ -80,6 +79,8 @@ void setup() {
 
   aux2 = false;
   aux = false;
+
+  se_inclinou = false;
 }
 
 void loop() {
@@ -306,7 +307,7 @@ bool modo_operacao() {
 }
 
 bool iniciar_calibracao() {
-  Serial.println("{MSGEntrou no modo de Calibracao}");
+  enviar_bluetooth("{MSGEntrou no modo de Calibracao}");
   String comando = "";
   valor_calibracao = 0.0;
   while (calibracao) {
@@ -315,54 +316,52 @@ bool iniciar_calibracao() {
     if (comando == "operacao") {
       calibracao = false;
       operacao = true;
-    }else if (comando == "fim_calibracao") {
+    } else if (comando == "fim_calibracao") {
       calibracao = false;
       operacao = true;
       //enviar média
     }
     else {
-        aux_calibracao=true;
+      boolean aux_calibracao = true;
+      leitura();
+      //colocar dentro do while um auxiliar calibração
+
+      while (aux_calibracao == true) {
+        //ler mpu
         leitura();
-        //colocar dentro do while um auxiliar calibração
-        
-        while(aux_calibracao==true) {
-          //ler mpu
-          leitura();
-          float variacao = 90 - angulo_x;
-          if(variacao>20){
-              se_inclinou=true;
-            }
-        Serial.println(variacao);
-          if(variacao > valor_calibracao) {
-            if(variacao >= 0 && variacao <= 90) {
-              valor_calibracao = variacao;
-            }
-            
-          }
-          else{
-            if(variacao<10&&se_inclinou){
-              aux_calibracao=false;
-              comando = "finalizar_exercicio";
-              }
-            }
-          delay(20);
+        float variacao = 90 - angulo_x;
+        if (variacao > 20) {
+          se_inclinou = true;
         }
 
-        if (comando == "finalizar_exercicio") {
-          Serial.println("{" + (String) "CAL" + (String) valor_calibracao + (String) "}");
-          //enviar valor máximo pro app
-          delay(3000);
-          valor_calibracao = 0.0;
-          se_inclinou=false;
+        if (variacao > valor_calibracao) {
+          if (variacao >= 0 && variacao <= 90) {
+            valor_calibracao = variacao;
+          }
+
         }
-    } 
+        else {
+          if (variacao < 10 && se_inclinou) {
+            aux_calibracao = false;
+            comando = "finalizar_exercicio";
+          }
+        }
+        delay(20);
+      }
+
+      if (comando == "finalizar_exercicio") {
+        enviar_bluetooth("{" + (String) "CAL" + (String) valor_calibracao + (String) "}");
+        //enviar valor máximo pro app
+        delay(3000);
+        valor_calibracao = 0.0;
+        se_inclinou = false;
+      }
+    }
     delay(20);
   }
 
   return true;
 }
-
-
 
 String receber_bluetooth() {
   String  comando = "";
@@ -382,7 +381,7 @@ void enviar_bluetooth(String mensagem) {
   uint8_t mensagem_bluetooth[tamanho];
 
   for (int i = 0; i < tamanho; i++) {
-    p[i] = (uint8_t) mensagem[i];
+    mensagem_bluetooth[i] = (uint8_t) mensagem[i];
   }
 
   SerialBT.write((uint8_t*)&mensagem_bluetooth, tamanho);
