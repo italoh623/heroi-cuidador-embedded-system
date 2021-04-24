@@ -20,7 +20,6 @@ bool calibracao = false;
 bool operacao = false;
 
 int valor_emg_atual;
-int valores_emg[5] = {0, 0, 0, 0, 0};
 int media_emg;
 int j;
 
@@ -47,19 +46,19 @@ const float VARIACAO_SUPERIOR_X = 20.0;
 const int  MAX_CORRETA = 20;
 const int  MAX_INCORRETA = 40;
 
-const int MOTOR_ESQUERDO = 11;
-const int MOTOR_DIREITO = 10;
+const int PINO_EMG = 34;
+const int PINO_MOTOR_ESQUERDO = 2;
+const int PINO_MOTOR_DIREITO = 4;
 
 void setup() {
   Serial.begin(9600);
   SerialBT.begin("Heroi Cuidador");
-  //  bluetooth.begin(9600);
 
-  pinMode(MOTOR_ESQUERDO, OUTPUT);
-  pinMode(MOTOR_DIREITO, OUTPUT);
+  pinMode(PINO_MOTOR_ESQUERDO, OUTPUT);
+  pinMode(PINO_MOTOR_DIREITO, OUTPUT);
 
-  digitalWrite(MOTOR_ESQUERDO, LOW);
-  digitalWrite(MOTOR_DIREITO, LOW);
+  digitalWrite(PINO_MOTOR_ESQUERDO, LOW);
+  digitalWrite(PINO_MOTOR_DIREITO, LOW);
 
   Wire.begin();
   mpu6050.begin();
@@ -90,7 +89,7 @@ void loop() {
     calibracao = true;
     operacao = false;
     aux2 = false;
-    aux = iniciar_calibracao();
+    aux = modo_calibracao();
   }
   else if (modo == "operacao" || aux ) {
     calibracao = false;
@@ -105,9 +104,6 @@ void loop() {
 void identificaFadigaMuscular() {
   if (media_emg == CONTADOR_EMG) {
     musculo_relaxado = false;
-
-    //Disparar motor
-    //    digitalWrite(MOTOR_ESQUERDO, HIGH);
     enviar_bluetooth("{MSGComeçou Fadiga Muscular}");
   }
 }
@@ -127,7 +123,7 @@ bool checaTerminouFadigaMuscular() {
 //Musculo saiu da situação de fadiga
 void resetaSistemaEMG() {
   //Desliga motor
-  digitalWrite(MOTOR_ESQUERDO, LOW);
+  digitalWrite(PINO_MOTOR_ESQUERDO, LOW);
   enviar_bluetooth("{MSGTerminou Fadiga Muscular}");
 
   media_emg = 0;
@@ -138,7 +134,7 @@ void resetaSistemaEMG() {
 
 void resetaSistemaGiro() {
   // Desliga motor
-  digitalWrite(MOTOR_ESQUERDO, LOW);
+  digitalWrite(PINO_MOTOR_ESQUERDO, LOW);
   enviar_bluetooth("{" + (String) "MSG" + (String) "Postura Correta" + (String) "}");
 
   contador_postura_correta = 0;
@@ -176,40 +172,17 @@ bool checaPosturaCorreta() {
   return false;
 }
 
-void leitura() {
+void leitura_mpu() {
   mpu6050.update();
   angulo_x = mpu6050.getAngleX();
   angulo_y = mpu6050.getAngleY();
   angulo_z = mpu6050.getAngleZ();
-
-  //  enviar_bluetooth("{" + (String) "MPU" + (String) angulo_x + " " + (String) angulo_y + " " + (String) angulo_z + "}");
-
-  //  if(calibracao) {
-  //    enviar_bluetooth("{" + (String) "CAL"+ (String) angulo_x + "}");
-  //  }
-
 }
 
-void atualizaValores() {
+void leitura_emg() {
 
-  //Leitura do valor do sensor EMG
-  valor_emg_atual = analogRead(A0);
-
-  //  if(operacao) {
-  //    valores_emg[j] = valor_emg_atual;
-  //
-  //    if(j == 4) {
-  //      int soma = 0;
-  //      for(int i=0; i<5; i++) {
-  //        soma = valores_emg[i];
-  //      }
-  //      soma = soma/5;
-  //      enviar_bluetooth("{EMG"+ (String) soma + "}");
-  //      j = -1;
-  //    }
-  //
-  //    j++;
-  //  }
+  //leitura do valor do sensor EMG
+  valor_emg_atual = analogRead(PINO_EMG);
 
   if (valor_emg_atual > FAIXA_EMG_ATIVACAO) {
     if (media_emg < CONTADOR_EMG ) {
@@ -222,8 +195,6 @@ void atualizaValores() {
       media_emg = media_emg - 1;
     }
   }
-
-  //  enviar_bluetooth("{"+ (String) "EMG" + (String) media_emg + "}");
 }
 
 bool modo_operacao() {
@@ -232,8 +203,8 @@ bool modo_operacao() {
   while (operacao) {
     String comando = "";
 
-    leitura();
-    atualizaValores();
+    leitura_mpu();
+    leitura_emg();
 
     if (postura_ereta) {
       checaPostura();
@@ -264,7 +235,7 @@ bool modo_operacao() {
     if (!musculo_relaxado && !postura_ereta) {
       if (parada_aux) {
         parada_aux = false;
-        digitalWrite(MOTOR_ESQUERDO, HIGH);
+        digitalWrite(PINO_MOTOR_ESQUERDO, HIGH);
         enviar_bluetooth("{MOVincorreto}");
         delay(3000);
       }
@@ -273,7 +244,7 @@ bool modo_operacao() {
       checaPosturaCorreta();
 
       if (musculo_relaxado_2 && postura_ereta_2) {
-        digitalWrite(MOTOR_ESQUERDO, LOW);
+        digitalWrite(PINO_MOTOR_ESQUERDO, LOW);
         resetaSistemaEMG();
         resetaSistemaGiro();
         parada_aux = true;
@@ -306,7 +277,7 @@ bool modo_operacao() {
   return true;
 }
 
-bool iniciar_calibracao() {
+bool modo_calibracao() {
   enviar_bluetooth("{MSGEntrou no modo de Calibracao}");
   String comando = "";
   valor_calibracao = 0.0;
@@ -323,12 +294,12 @@ bool iniciar_calibracao() {
     }
     else {
       boolean aux_calibracao = true;
-      leitura();
+      leitura_mpu();
       //colocar dentro do while um auxiliar calibração
 
       while (aux_calibracao == true) {
         //ler mpu
-        leitura();
+        leitura_mpu();
         float variacao = 90 - angulo_x;
         if (variacao > 20) {
           se_inclinou = true;
