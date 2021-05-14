@@ -1,6 +1,7 @@
 #include <MPU6050_tockn.h>
 #include<SoftwareSerial.h>
 
+#define EMG A0
 SoftwareSerial bluetooth(10, 11);
 MPU6050 mpu6050(Wire);
 
@@ -46,7 +47,6 @@ const float VARIACAO_INFERIOR_X = 65.0;
 const float VARIACAO_SUPERIOR_X = 20.0;
 const int  MAX_CORRETA = 20;
 const int  MAX_INCORRETA = 40;
-
 const int MOTOR_ESQUERDO = 11;
 const int MOTOR_DIREITO = 10;
 
@@ -190,7 +190,7 @@ void leitura() {
 void atualizaValores() {
 
   //Leitura do valor do sensor EMG
-  valor_emg_atual = analogRead(A0);
+  valor_emg_atual = analogRead(EMG);
   
 //  if(operacao) {
 //    valores_emg[j] = valor_emg_atual;
