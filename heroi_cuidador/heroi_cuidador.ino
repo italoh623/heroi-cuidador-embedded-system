@@ -57,11 +57,16 @@ boolean se_inclinou;
 //Constantes
 
 const int CONTADOR_EMG = 30;
-const int FAIXA_EMG_ATIVACAO = 800;
+const int FAIXA_EMG_ATIVACAO = 3200;
 
 const float ANGULO_POSTURA_CORRETA_X = 90.0;
 const float VARIACAO_INFERIOR_X = 65.0;
 const float VARIACAO_SUPERIOR_X = 20.0;
+
+const float ANGULO_POSTURA_CORRETA_Y = 45.0;
+const float VARIACAO_INFERIOR_Y = 45.0;
+const float VARIACAO_SUPERIOR_Y = 45.0;
+
 const int  MAX_CORRETA = 20;
 const int  MAX_INCORRETA = 40;
 
@@ -145,6 +150,7 @@ bool checaTerminouFadigaMuscular() {
 void resetaSistemaEMG() {
   //Desliga motor
   digitalWrite(PINO_MOTOR_ESQUERDO, LOW);
+  digitalWrite(PINO_MOTOR_DIREITO, LOW);
   enviar_bluetooth("{MSGTerminou Fadiga Muscular}");
 
   musculo_relaxado_2 = false;
@@ -154,6 +160,7 @@ void resetaSistemaEMG() {
 void resetaSistemaGiro() {
   // Desliga motor
   digitalWrite(PINO_MOTOR_ESQUERDO, LOW);
+  digitalWrite(PINO_MOTOR_DIREITO, LOW);
   enviar_bluetooth("{" + (String) "MSG" + (String) "Postura Correta" + (String) "}");
 
   contador_postura_correta = 0;
@@ -166,6 +173,10 @@ void resetaSistemaGiro() {
 //Checa se a postura está incorreta
 void checaPostura() {
   if (angulo_x < ANGULO_POSTURA_CORRETA_X - VARIACAO_INFERIOR_X || angulo_x > ANGULO_POSTURA_CORRETA_X + VARIACAO_SUPERIOR_X) {
+    contador_postura_incorreta = contador_postura_incorreta + 1;
+  }
+
+  if (angulo_y < ANGULO_POSTURA_CORRETA_Y - VARIACAO_INFERIOR_Y || angulo_y > ANGULO_POSTURA_CORRETA_Y + VARIACAO_SUPERIOR_Y) {
     contador_postura_incorreta = contador_postura_incorreta + 1;
   }
 
@@ -249,6 +260,7 @@ bool modo_operacao() {
       if (parada_aux) {
         parada_aux = false;
         digitalWrite(PINO_MOTOR_ESQUERDO, HIGH);
+        digitalWrite(PINO_MOTOR_DIREITO, HIGH);
         enviar_bluetooth("{MOVincorreto}");
         delay(3000);
       }
@@ -258,6 +270,7 @@ bool modo_operacao() {
 
       if (musculo_relaxado_2 && postura_ereta_2) {
         digitalWrite(PINO_MOTOR_ESQUERDO, LOW);
+        digitalWrite(PINO_MOTOR_DIREITO, LOW);
         resetaSistemaEMG();
         resetaSistemaGiro();
         parada_aux = true;
